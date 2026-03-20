@@ -15,7 +15,8 @@ for(i = 0; i < n; i++) {
 
 function badgeClass(complexity) {
   if (complexity === "O(1)") return "green";
-  if (complexity === "O(n)" || complexity === "O(log n)") return "yellow";
+  if (complexity === "O(n)" || complexity === "O(log n)" || complexity === "O(n log n)")
+    return "yellow";
   return "red";
 }
 

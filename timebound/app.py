@@ -28,7 +28,7 @@ def analyze():
         first = result.errors[0]
         return jsonify({"success": False, "error": first.message, "line": first.line_no})
 
-    lines, overall = analyze_complexity(result.lines)
+    lines, overall = analyze_complexity(result.lines, code=code)
 
     return jsonify(
         {

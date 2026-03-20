@@ -39,7 +39,9 @@ def _big_o_from_exponent(exp: int) -> str:
     return f"O(n^{exp})"
 
 
-def analyze_complexity(parsed: List[ParsedLine]) -> tuple[List[LineComplexity], str]:
+def analyze_complexity(
+    parsed: List[ParsedLine], *, code: str | None = None
+) -> tuple[List[LineComplexity], str]:
     """
     Line-by-line time complexity in a compiler-like listing:
     - Non-loop statements are treated as O(1) (intrinsic per-execution cost)
@@ -95,12 +97,93 @@ def analyze_complexity(parsed: List[ParsedLine]) -> tuple[List[LineComplexity], 
         )
 
     if has_infinite:
-        overall = "O(∞)"
+        loop_overall = "O(∞)"
     elif max_exp > 0:
-        overall = _big_o_from_exponent(max_exp)
+        loop_overall = _big_o_from_exponent(max_exp)
     elif has_log:
-        overall = "O(log n)"
+        loop_overall = "O(log n)"
     else:
-        overall = "O(1)"
-    return out, overall
+        loop_overall = "O(1)"
+
+    # Optional enhanced heuristics using the full source text.
+    # We only use it to improve the overall estimate; per-line complexity stays
+    # based on your existing loop-depth logic.
+    if code:
+        heuristic_overall = _overall_from_heuristics(code, loop_overall)
+        return out, heuristic_overall
+
+    return out, loop_overall
+
+
+def _overall_rank(big_o: str) -> float:
+    # Higher means "worse" (choose max for overall).
+    if big_o == "O(∞)":
+        return 1e9
+    if big_o.startswith("O(2^") or big_o == "O(2^n)" or big_o == "O(2ⁿ)":
+        return 100
+    if big_o == "O(1)":
+        return 0
+    if big_o == "O(log n)":
+        return 1
+    if big_o == "O(n)":
+        return 2
+    if big_o == "O(n log n)":
+        return 3
+    if big_o.startswith("O(n^"):
+        # O(n^k) where k>=2
+        try:
+            k = int(big_o.split("^", 1)[1].rstrip(")"))
+        except Exception:
+            k = 2
+        return 3 + max(0, k - 1)
+    # Default conservative
+    return 2
+
+
+def _overall_from_heuristics(code: str, fallback: str) -> str:
+    compact = code.replace(" ", "").replace("\t", "").replace("\n", "")
+
+    # Binary-search style pattern
+    binary_search = False
+    if "while(low<=high)" in compact or "while(high>=low)" in compact:
+        binary_search = True
+    if re.search(r"while\s*\(\s*([a-zA-Z_]\w*)\s*<=\s*([a-zA-Z_]\w*)\s*\)", code):
+        if "mid" in code and "low" in code and "high" in code:
+            binary_search = True
+
+    # Merge-sort / heap-sort patterns
+    has_merge_sort = bool(re.search(r"(merge_sort|mergeSort|heapSort|heap_sort)", code, re.IGNORECASE))
+
+    # Simple recursion detection:
+    # - find a function name from a likely C signature
+    # - count self calls
+    fn_def = re.search(
+        r"(?:int|void|float|double|char|long|short|unsigned|signed|bool)\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*\{",
+        code,
+    )
+    fn_name = fn_def.group(1) if fn_def else None
+    self_call_count = 0
+    if fn_name:
+        call_re = re.compile(r"\b" + re.escape(fn_name) + r"\s*\(")
+        self_call_count = len(call_re.findall(code))
+        # subtract ~1 for the definition occurrence
+        self_call_count = max(0, self_call_count - 1)
+
+    # Candidate overall complexity from heuristics
+    candidate = fallback
+    if binary_search:
+        candidate = "O(log n)"
+
+    if has_merge_sort and _overall_rank(candidate) < _overall_rank("O(n log n)"):
+        candidate = "O(n log n)"
+
+    # Exponential recursion approximation (very rough, mirrors the idea from JS):
+    # if self recursion branches heavily and we don't see merge/heap patterns,
+    # assume exponential.
+    if self_call_count >= 2 and not has_merge_sort:
+        if _overall_rank(candidate) < _overall_rank("O(2^n)"):
+            candidate = "O(2^n)"
+
+    # Finally, pick the worse of fallback vs candidate.
+    return candidate if _overall_rank(candidate) >= _overall_rank(fallback) else fallback
 
