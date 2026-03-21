@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auth • LearnX Compiler</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="landing-wrap">
+      <header class="landing-topbar">
+        <div class="brand">LearnX</div>
+        <div class="actions">
+          <a class="btn" href="{{ url_for('compiler') }}">Launch Compiler</a>
+        </div>
+      </header>
+
+      <main class="landing-hero">
+        <h1 class="landing-title" style="font-size: clamp(32px, 5vw, 56px);">learnx compiler</h1>
+
+        <div class="auth-tabs">
+          <button id="tab-login" class="auth-tab">Sign in</button>
+          <button id="tab-signup" class="auth-tab">Sign up</button>
+        </div>
+
+        <div id="panel-login" class="panel auth-panel">
+          <div class="panel-header"><h2>Login</h2></div>
+          <form method="post" action="{{ url_for('login') }}" class="auth-form">
+            {% if login_error %}<div class="error">{{ login_error }}</div>{% endif %}
+            {% if login_success %}<div class="warning">{{ login_success }}</div>{% endif %}
+            <label>Email</label>
+            <input class="auth-input" name="email" type="email" required />
+            <label>Password</label>
+            <input class="auth-input" name="password" type="password" required />
+            <button class="btn btn-primary" type="submit">Login</button>
+          </form>
+        </div>
+
+        <div id="panel-signup" class="panel auth-panel">
+          <div class="panel-header"><h2>Signup</h2></div>
+          <form method="post" action="{{ url_for('signup') }}" class="auth-form">
+            {% if signup_error %}<div class="error">{{ signup_error }}</div>{% endif %}
+            <label>Username</label>
+            <input class="auth-input" name="username" type="text" required />
+            <label>Email</label>
+            <input class="auth-input" name="email" type="email" required />
+            <label>Password</label>
+            <input class="auth-input" name="password" type="password" required />
+            <button class="btn btn-primary" type="submit">Signup</button>
+          </form>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      const loginTab = document.getElementById("tab-login");
+      const signupTab = document.getElementById("tab-signup");
+      const loginPanel = document.getElementById("panel-login");
+      const signupPanel = document.getElementById("panel-signup");
+      const initial = "{{ active_tab or 'login' }}";
+
+      function setTab(name) {
+        const isLogin = name === "login";
+        loginPanel.style.display = isLogin ? "block" : "none";
+        signupPanel.style.display = isLogin ? "none" : "block";
+        loginTab.classList.toggle("active", isLogin);
+        signupTab.classList.toggle("active", !isLogin);
+      }
+
+      loginTab.addEventListener("click", () => setTab("login"));
+      signupTab.addEventListener("click", () => setTab("signup"));
+      setTab(initial);
+    </script>
+  </body>
+</html>
